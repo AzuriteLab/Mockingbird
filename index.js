@@ -96,7 +96,7 @@ discord_client.on('message', async (msg) => {
             const word = tokens[1];
             const mean = tokens[2];
             dictionary.words = dictionary.words.filter(obj => (obj.word != word));
-            dictionary.words.push({word: encode(word), mean: mean});
+            dictionary.words.push({word: word, mean: mean});
             console.log(dictionary);
             await writeFile("./dictionary.json", JSON.stringify(dictionary));
             msg.channel.send(`単語の登録が完了しました: ${word} -> ${mean}`);

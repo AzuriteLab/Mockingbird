@@ -23,6 +23,7 @@ const system_settings = {
     default_voice_type: "ja-JP-Wavenet-A",
     default_pitch: "1.0",
     default_speed: "1.1",
+    max_character_num: 100,
 };
 
 const discord_client = new Discord.Client();
@@ -50,8 +51,8 @@ var rapid_mode = false;
 var connection = null;
 var dispatcher = null;
 var current_playing = "";
-
 var message_requests = [];
+
 const on_finish_proc = async (cond) => {
     if (!cond) {
         try {
@@ -69,7 +70,6 @@ const on_finish_proc = async (cond) => {
         }
     }
 }
-
 const quote = (str) => {
     return str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 }
@@ -81,7 +81,6 @@ discord_client.on('ready', async () => {
       console.log(`Logged in as ${discord_client.user.tag}!`);
 });
 
-var connection = null;
 discord_client.on('message', async (msg) => {
     if (!msg.author.bot) {
         if (msg.content == "##join" && msg.member.voice.channel.joinable && msg.member.voice.channel) {
@@ -169,7 +168,7 @@ discord_client.on('message', async (msg) => {
             return
         }
         if (connection) {
-            var req_msg = msg.content.slice(0, 100);
+            var req_msg = msg.content.slice(0, max_character_num);
             dictionary.words.forEach((item, index) => {
                 var word = quote(item.word);
                 var regex = new RegExp(`${word}`, 'g');
@@ -210,6 +209,14 @@ discord_client.on('message', async (msg) => {
                 message_requests.unshift(filename);
             }
         }
+    }
+});
+
+discord_client.on("voiceStateUpdate", async (old_state, new_state) => {
+    if (connection && connection.channel.members.array().length == 1) {
+        await connection.disconnect();
+        connection = null;
+        console.log("disconnected");
     }
 });
 

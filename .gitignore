@@ -3,7 +3,7 @@
 
 node_modules/
 
-!index.js
+!app.js
 !package.json
 !README.md
 !LICENSE

@@ -9,6 +9,22 @@ const readFile = util.promisify(fs.readFile);
 const writeFile = util.promisify(fs.writeFile);
 const unlink = util.promisify(fs.unlink);
 
+const system_settings = {
+    voice_types: {
+        "sa": "ja-JP-Standard-A",
+        "sb": "ja-JP-Standard-B",
+        "sc": "ja-JP-Standard-C",
+        "sd": "ja-JP-Standard-D",
+        "wa": "ja-JP-Wavenet-A",
+        "wb": "ja-JP-Wavenet-B",
+        "wc": "ja-JP-Wavenet-C",
+        "wd": "ja-JP-Wavenet-D",
+    },
+    default_voice_type: "ja-JP-Wavenet-A",
+    default_pitch: "1.0",
+    default_speed: "1.1",
+};
+
 const discord_client = new Discord.Client();
 const tts_client = new textToSpeech.TextToSpeechClient();
 
@@ -36,7 +52,7 @@ var dispatcher = null;
 var current_playing = "";
 
 var message_requests = [];
-var on_finish_proc = async (cond) => {
+const on_finish_proc = async (cond) => {
     if (!cond) {
         try {
             await readFile(current_playing);
@@ -56,6 +72,9 @@ var on_finish_proc = async (cond) => {
 
 const quote = (str) => {
     return str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+}
+const clamp = (x, a, b) => {
+    return Math.min(Math.max(x, a), b);
 }
 
 discord_client.on('ready', async () => {
@@ -91,6 +110,16 @@ discord_client.on('message', async (msg) => {
             msg.channel.send(`現在登録されている単語数: ${dictionary.words.length}`);
             return;
         }
+        if (msg.content == "##myvoice" && connection && msg.member.voice.channel) {
+            const user_id = msg.member.id;
+            if (dictionary.voice_settings && dictionary.voice_settings[user_id]) {
+                const cvs = dictionary.voice_settings[user_id];
+                msg.channel.send(`${msg.member.displayName} ${cvs.type} Pitch:${cvs.pitch}, Speed:${cvs.speed}`); 
+            } else {
+                msg.channel.send(`音声が登録されていないよ,${msg.member.displayName}`); 
+            }
+            return;
+        }
         if (msg.content.match(/^##learn \S+ \S+$/)) {
             const tokens = msg.content.split(" ");
             const word = tokens[1];
@@ -100,6 +129,27 @@ discord_client.on('message', async (msg) => {
             console.log(dictionary);
             await writeFile("./dictionary.json", JSON.stringify(dictionary));
             msg.channel.send(`単語の登録が完了しました: ${word} -> ${mean}`);
+            return;
+        }
+        if (msg.content.match(/^##setvoice \S+ \S+ \S+$/)) {
+            const tokens = msg.content.split(" ");
+            const type = system_settings.voice_types[tokens[1]];
+            var pitch = parseFloat(tokens[2]);
+            var speed = parseFloat(tokens[3]);
+            if (type && pitch && speed) {
+                if (!dictionary.voice_settings) {
+                    dictionary.voice_settings = {};
+                }
+                pitch = clamp(pitch, -20.0, 20.0);
+                speed = clamp(speed, 0.25, 4.0);
+                const user_id = msg.member.id;
+                dictionary.voice_settings[user_id] = {"type": type, "pitch": pitch, "speed": speed};
+                console.log(dictionary.voice_settings);
+                await writeFile("./dictionary.json", JSON.stringify(dictionary));
+                msg.channel.send(`音声設定が完了しました: ${msg.member.displayName} ${type} Pitch:${pitch}, Speed:${speed}`);
+            } else {
+                msg.channel.send(`コマンドが間違っています: ${msg.member.displayName} ${type} Pitch:${pitch}, Speed:${speed}`);
+            }
             return;
         }
         if (msg.content.match(/^##rm \S+$/)) {
@@ -125,11 +175,23 @@ discord_client.on('message', async (msg) => {
                 var regex = new RegExp(`${word}`, 'g');
                 req_msg = req_msg.replace(regex, item.mean);
             });
+
+            var req_pitch = system_settings.default_pitch;
+            var req_speed = system_settings.default_speed;
+            var req_voice = system_settings.default_voice_type;
+            if (dictionary.voice_settings) {
+                const user_voice_setting = dictionary.voice_settings[msg.member.id];
+                if (user_voice_setting) {
+                    req_pitch = parseFloat(user_voice_setting.pitch);
+                    req_speed = parseFloat(user_voice_setting.speed);
+                    req_voice = user_voice_setting.type;
+                }
+            }
             const filename = `${uuid.v4()}.mp3`;
             const request = {
                 input: {text: req_msg},
-                voice: {languageCode: "ja-JP", name: 'ja-JP-Wavenet-A', ssmlGender: 'FEMALE', pitch: 2},
-                audioConfig: {audioEncoding: 'MP3'},
+                voice: {languageCode: "ja-JP", name: req_voice},
+                audioConfig: {audioEncoding: 'MP3', pitch: req_pitch, speakingRate: req_speed},
             };
             const [response] = await tts_client.synthesizeSpeech(request);
             await writeFile(filename, response.audioContent, "binary");

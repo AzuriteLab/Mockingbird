@@ -52,6 +52,7 @@ var connection = null;
 var dispatcher = null;
 var current_playing = "";
 var message_requests = [];
+var target_channel_id = null;
 
 const on_finish_proc = async (cond) => {
     if (!cond) {
@@ -84,6 +85,7 @@ discord_client.on('ready', async () => {
 discord_client.on('message', async (msg) => {
     if (!msg.author.bot) {
         if (msg.content == "##join" && msg.member.voice.channel.joinable && msg.member.voice.channel) {
+            target_channel_id = msg.channel.id;
             connection = await msg.member.voice.channel.join();
             msg.channel.send("Hi");
             return;
@@ -91,6 +93,7 @@ discord_client.on('message', async (msg) => {
         if (msg.content == "##leave" && connection && msg.member.voice.channel) {
             await connection.disconnect();
             connection = null;
+            target_channel_id = null;
             msg.channel.send("Bye");
             return;
         }
@@ -179,11 +182,12 @@ discord_client.on('message', async (msg) => {
             msg.channel.send("コマンドが間違っています")
             return;
         }
-        if (msg.content.match(/http/g)) {
+        if (msg.content.match(/<@!\d+>/)) {
             return
         }
-        if (connection) {
+        if (connection && target_channel_id && target_channel_id == msg.channel.id) {
             var req_msg = msg.content.slice(0, system_settings.max_character_num);
+            req_msg = req_msg.replace(/(http|https):\/\/\S+/g, "");
             dictionary.words.forEach((item, index) => {
                 var word = quote(item.word);
                 var regex = new RegExp(`${word}`, 'g');

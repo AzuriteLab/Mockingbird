@@ -183,7 +183,7 @@ discord_client.on('message', async (msg) => {
             return
         }
         if (connection) {
-            var req_msg = msg.content.slice(0, max_character_num);
+            var req_msg = msg.content.slice(0, system_settings.max_character_num);
             dictionary.words.forEach((item, index) => {
                 var word = quote(item.word);
                 var regex = new RegExp(`${word}`, 'g');

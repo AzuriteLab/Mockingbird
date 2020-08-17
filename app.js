@@ -94,7 +94,7 @@ discord_client.on('message', async (msg) => {
             msg.channel.send("Bye");
             return;
         }
-        if (msg.content == "##rapid" && connection && msg.member.voice.channel) {
+        if (msg.content == "##hasty" && connection && msg.member.voice.channel) {
             rapid_mode = true;
             msg.channel.send("切り上げモードに移行しました");
             return;

@@ -61,7 +61,7 @@ var current_processing_chars = 0;
 const on_finish_proc = async (cond) => {
     if (!cond) {
         try {
-            if (!current_playing.match(/miko_voice/)) {
+            if (!current_playing.match(/login_voices/)) {
                 await readFile(current_playing);
                 await unlink(current_playing); 
             }
@@ -70,7 +70,7 @@ const on_finish_proc = async (cond) => {
         if (message_requests.length > 0) {
             const next = message_requests.pop();
             current_playing = next;
-            var next_disp = connection.play(next);
+            let next_disp = connection.play(next);
             next_disp.on("speaking", on_finish_proc);
         } else {
             dispatcher = null;
@@ -161,9 +161,9 @@ command_dispatcher.on({
         const dice_tokens = obj.args[0].split("d");
         const dice_num = clamp(dice_tokens[0], 0, 10);
         const max_dice_count = dice_tokens[1];
-        var total_roll = 0;
-        var rolls = [];
-        for (var i=0; i<dice_num; ++i) {
+        let total_roll = 0;
+        let rolls = [];
+        for (let i=0; i<dice_num; ++i) {
             const roll = Math.round(Math.random() * max_dice_count);
             rolls.push(roll);
             total_roll += roll;
@@ -191,8 +191,8 @@ command_dispatcher.on({
     expr: (obj) => { return obj.args.length == 3; },
     do: async (obj) => {
         const type = system_settings.voice_types[obj.args[0]];
-        var pitch = parseFloat(obj.args[1]);
-        var speed = parseFloat(obj.args[2]);
+        let pitch = parseFloat(obj.args[1]);
+        let speed = parseFloat(obj.args[2]);
         if (type && pitch && speed) {
             if (!dictionary.voice_settings) {
                 dictionary.voice_settings = {};
@@ -234,17 +234,17 @@ discord_client.on('message', async (msg) => {
             }
 
             if (connection && target_channel_id && target_channel_id == msg.channel.id) {
-                var req_msg = msg.content.slice(0, system_settings.max_character_num);
+                let req_msg = msg.content.slice(0, system_settings.max_character_num);
                 req_msg = req_msg.replace(/(http|https):\/\/\S+/g, "");
                 dictionary.words.forEach((item, index) => {
-                    var word = quote(item.word);
-                    var regex = new RegExp(`${word}`, 'g');
+                    let word = quote(item.word);
+                    let regex = new RegExp(`${word}`, 'g');
                     req_msg = req_msg.replace(regex, item.mean);
                 });
 
-                var req_pitch = system_settings.default_pitch;
-                var req_speed = system_settings.default_speed;
-                var req_voice = system_settings.default_voice_type;
+                let req_pitch = system_settings.default_pitch;
+                let req_speed = system_settings.default_speed;
+                let req_voice = system_settings.default_voice_type;
                 if (dictionary.voice_settings) {
                     const user_voice_setting = dictionary.voice_settings[msg.member.id];
                     if (user_voice_setting) {
@@ -286,23 +286,23 @@ discord_client.on("voiceStateUpdate", async (old_state, new_state) => {
     if (!connection) {
         return;
     }
-    var  member_num = connection.channel.members.array().length;
+    let member_num = connection.channel.members.array().length;
     if (connection && member_num == 1) {
         await connection.disconnect();
         connection = null;
         console.log("disconnected");
     }
     if (connection && member_num > current_member_num) {
-        const filenames = fs.readdirSync("./miko_voice").filter(name => name.match(/\S+\.mp3/));
-        const miko_file_name = filenames[Math.floor(Math.random() * filenames.length)];
-        const miko_file_path = `./miko_voice/${miko_file_name}`;
-        if (fs.existsSync(miko_file_path, "utf8")) {
+        const filenames = fs.readdirSync("./login_voices").filter(name => name.match(/\S+\.mp3/));
+        const lv_file_name = filenames[Math.floor(Math.random() * filenames.length)];
+        const lv_file_path = `./login_voices/${lv_file_name}`;
+        if (fs.existsSync(lv_file_path, "utf8")) {
             if (!dispatcher || rapid_mode) {
-                current_playing = miko_file_path;
-                dispatcher = connection.play(miko_file_path);
+                current_playing = lv_file_path;
+                dispatcher = connection.play(lv_file_path);
                 dispatcher.on("speaking", on_finish_proc);
             } else {
-                message_requests.unshift(miko_file_path);
+                message_requests.unshift(lv_file_path);
             }            
         }       
     }

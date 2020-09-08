@@ -62,3 +62,18 @@ speed:
 https://cloud.google.com/text-to-speech?hl=ja
 
 ## Deploy
+
+Mockingbirdのセットアップと起動方法は以下のURLを参照してください。
+適切なセットアップを行う事で、Windows環境で、使うときのみ起動といったことも可能なので是非使ってみてください。
+
+[Mockingbirdのセットアップと起動方法](https://scrapbox.io/azurite-tech-note/Mockingbird%E3%81%AE%E3%82%BB%E3%83%83%E3%83%88%E3%82%A2%E3%83%83%E3%83%97%E3%81%A8%E8%B5%B7%E5%8B%95%E6%96%B9%E6%B3%95)
+
+## Startup
+
+Google Cloud Platform より取得した `gcp_key.json` を適当な配置し、そこへのパスを特定の環境変数として設定し起動します。
+
+```
+GOOGLE_APPLICATION_CREDENTIALS="/path/to/gcp_key.json" node .
+```
+
+永続化したい場合はforeverモジュールなど使ってください。

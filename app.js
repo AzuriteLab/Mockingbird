@@ -234,7 +234,7 @@ discord_client.on('message', async (msg) => {
             }
 
             if (connection && target_channel_id && target_channel_id == msg.channel.id) {
-                req_msg = req_msg.replace(/(http|https):\/\/\S+/g, "");
+                let req_msg = msg.content.replace(/(http|https):\/\/\S+/g, "");
                 dictionary.words.forEach((item, index) => {
                     let word = quote(item.word);
                     let regex = new RegExp(`${word}`, 'g');

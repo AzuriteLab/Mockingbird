@@ -161,10 +161,15 @@ command_dispatcher.on({
         const dice_tokens = obj.args[0].split("d");
         const dice_num = clamp(dice_tokens[0], 0, 10);
         const max_dice_count = dice_tokens[1];
+        if (max_dice_count <= 0) {
+            obj.message.channel.send(`${obj.message.member.displayName}のダイスロール: 出目が1以上のダイスを指定してください。`); 
+            return;
+        }
+
         let total_roll = 0;
         let rolls = [];
         for (let i=0; i<dice_num; ++i) {
-            const roll = Math.round(Math.random() * max_dice_count);
+            const roll = Math.round(Math.random() * (max_dice_count-1)) + 1;
             rolls.push(roll);
             total_roll += roll;
         }

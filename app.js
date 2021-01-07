@@ -183,6 +183,10 @@ command_dispatcher.on({
     do: async (obj) => {
         const word = obj.args[0];
         const mean = obj.args[1];
+        if (word == " " || mean == " " || word == "" || mean == "") {
+            obj.message.channel.send(`無効な文字が入力されました`);
+            return;
+        }
         dictionary.words = dictionary.words.filter(elem => (elem.word != word));
         dictionary.words.push({word: word, mean: mean});
         console.log(dictionary);
@@ -224,6 +228,16 @@ command_dispatcher.on({
         dictionary.words = dictionary.words.filter(elem => (!elem.word.match(rm_reg)));
         await writeFile("./dictionary.json", JSON.stringify(dictionary));
         obj.message.channel.send(`登録されている単語を削除しました: ${word}`);
+    }
+});
+
+command_dispatcher.on({
+    name: "##setwav",
+    expr: (obj) => { return obj.args.length == 1 && obj.message.attachments.array().length == 1; },
+    do: async (obj) => {
+        const word = quote(obj.args[0]);
+        const attachment = obj.message.attachments.array()[0];
+        obj.message.channel.send(`${util.inspect(attachment)}`);
     }
 });
 

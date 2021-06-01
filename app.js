@@ -27,6 +27,22 @@ const system_settings = {
     max_character_num: 100,
 };
 
+var argv = require('argv');
+argv.option([
+	{
+		"name": "token",
+		"short": "t",
+		"type": "string"
+	},
+	{
+		"name": "prefix",
+		"short": "p",
+		"type": "string"
+	}
+]);
+var parsed_argv = argv.run();
+console.log(parsed_argv.options);
+
 const discord_client = new Discord.Client();
 const tts_client = new textToSpeech.TextToSpeechClient();
 const command_dispatcher = new CommandDispatcher();
@@ -49,6 +65,7 @@ if (!fs.existsSync("./dictionary.json", "utf8")) {
 }
 var dictionary = JSON.parse(fs.readFileSync("./dictionary.json", "utf8"));
 
+var prefix = parsed_argv.options.prefix;
 var rapid_mode = false;
 var connection = null;
 var dispatcher = null;
@@ -85,7 +102,7 @@ const clamp = (x, a, b) => {
 }
 
 command_dispatcher.on({
-    name: "##join",
+    name: `${prefix}join`,
     expr: (obj) => { return obj.message.member.voice.channel.joinable && obj.message.member.voice.channel},
     do : async (obj) => {
         target_channel_id = obj.message.channel.id;
@@ -95,7 +112,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##leave",
+    name: `${prefix}leave`,
     expr: (obj) =>  { return connection && obj.message.member.voice.channel; },
     do: async (obj) => {
         await connection.disconnect();
@@ -106,7 +123,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##hasty",
+    name: `${prefix}hasty`,
     expr: (obj) => { return connection && obj.message.member.voice.channel; },
     do: async (obj) => {
         rapid_mode = true;
@@ -115,7 +132,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##lazy",
+    name: `${prefix}lazy`,
     expr: (obj) => { return connection && obj.message.member.voice.channel; },
     do: (obj) => {
         rapid_mode = false;
@@ -124,7 +141,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##dump",
+    name: `${prefix}dump`,
     expr: (obj) => { return connection && obj.message.member.voice.channel; },
     do: (obj) => {
         obj.message.channel.send("現在登録されている単語の辞書ファイルです", {files: ["dictionary.json"]}); 
@@ -133,7 +150,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##count",
+    name: `${prefix}count`,
     expr: (obj) => { return connection && obj.message.member.voice.channel; },
     do: (obj) => {
         obj.message.channel.send(`起動してから変換した文字数 ${current_processing_chars}`); 
@@ -141,7 +158,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##myvoice",
+    name: `${prefix}myvoice`,
     expr: (obj) => { return connection && obj.message.member.voice.channel; },
     do: (obj) => {
         const user_id = obj.message.member.id;
@@ -155,7 +172,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##dice",
+    name: `${prefix}dice`,
     expr: (obj) => { return obj.args.length == 1 && obj.args[0].match(/^\d+d\d+$/); },
     do: (obj) => {
         const dice_tokens = obj.args[0].split("d");
@@ -178,7 +195,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##learn",
+    name: `${prefix}learn`,
     expr: (obj) => { return obj.args.length == 2; },
     do: async (obj) => {
         const word = obj.args[0];
@@ -196,7 +213,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##setvoice",
+    name: `${prefix}setvoice`,
     expr: (obj) => { return obj.args.length == 3; },
     do: async (obj) => {
         const type = system_settings.voice_types[obj.args[0]];
@@ -220,7 +237,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##rm",
+    name: `${prefix}rm`,
     expr: (obj) => { return obj.args.length == 1; },
     do: async (obj) => {
         const word = quote(obj.args[0]);
@@ -232,7 +249,7 @@ command_dispatcher.on({
 });
 
 command_dispatcher.on({
-    name: "##setwav",
+    name: `${prefix}setwav`,
     expr: (obj) => { return obj.args.length == 1 && obj.message.attachments.array().length == 1; },
     do: async (obj) => {
         const word = quote(obj.args[0]);
@@ -328,4 +345,4 @@ discord_client.on("voiceStateUpdate", async (old_state, new_state) => {
     current_member_num = member_num;
 });
 
-discord_client.login(app_settings.discord_token);
+discord_client.login(parsed_argv.options.token);

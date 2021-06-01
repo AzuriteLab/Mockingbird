@@ -25,10 +25,10 @@ class CommandDispatcher
             await target.do(obj);
             return true;
         }
-        if (message.content.match(/^##/)) {
-            message.channel.send("コマンドが間違っています")
-            return true;
-        }
+//	if (message.content.match(/(^##)|(^$$)/)) {
+//            message.channel.send("コマンドが間違っています")
+//            return true;
+//        }
         if (message.content.match(/<@!\d+>/)) {
             return true;
         }

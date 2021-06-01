@@ -312,7 +312,7 @@ discord_client.on("voiceStateUpdate", async (old_state, new_state) => {
         console.log("disconnected");
     }
     if (connection && member_num > current_member_num) {
-        const filenames = fs.readdirSync("./login_voices").filter(name => name.match(/\S+\.mp3/));
+        const filenames = fs.readdirSync("./login_voices").filter(name => name.match(/\S+\.(mp3|ogg|wav)/));
         const lv_file_name = filenames[Math.floor(Math.random() * filenames.length)];
         const lv_file_path = `./login_voices/${lv_file_name}`;
         if (fs.existsSync(lv_file_path, "utf8")) {

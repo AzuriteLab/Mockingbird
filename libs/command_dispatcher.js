@@ -19,16 +19,15 @@ class CommandDispatcher
             args: tokens.slice(1),
             message: message,
         }
+	if (message.content.match(/^(<@\S+>)/)) {
+	    return true;
+	}
 
         const target = this.#dispatch_list.find(elem => elem.name == obj.name);
         if (target && target.expr(obj)) {
             await target.do(obj);
             return true;
         }
-//	if (message.content.match(/(^##)|(^$$)/)) {
-//            message.channel.send("コマンドが間違っています")
-//            return true;
-//        }
         if (message.content.match(/<@!\d+>/)) {
             return true;
         }

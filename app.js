@@ -270,12 +270,12 @@ discord_client.on('message', async (msg) => {
             }
 
             if (connection && target_channel_id && target_channel_id == msg.channel.id) {
-                let req_msg = msg.content.replace(/(http|https):\/\/\S+/g, "");
-                dictionary.words.forEach((item, index) => {
-                    let word = quote(item.word);
-                    let regex = new RegExp(`${word}`, 'g');
-                    req_msg = req_msg.replace(regex, item.mean);
-                });
+                let req_msg = msg.content.replace(/((http|https):\/\/\S+)|(<@\S+>)/g, "");
+		dictionary.words.forEach((item, index) => {
+			let word = quote(item.word);
+			let regex = new RegExp(`${word}`, 'g');
+			req_msg = req_msg.replace(regex, item.mean);
+		});
                 req_msg = req_msg.slice(0, system_settings.max_character_num);
 
                 let req_pitch = system_settings.default_pitch;

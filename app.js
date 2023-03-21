@@ -2,8 +2,11 @@ const uuid = require('uuid')
 const async = require('async');
 const util = require('util');
 const textToSpeech = require('@google-cloud/text-to-speech');
-const Discord = require('discord.js');
+const {Client, Intents} = require('discord.js');
+const {createAudioResource, entersState, VoiceConnectionStatus, generateDependencyReport, joinVoiceChannel, getVoiceConnections, createAudioPlayer} = require('@discordjs/voice');
 const CommandDispatcher = require('./libs/command_dispatcher')
+
+console.log(generateDependencyReport());
 
 const fs = require('fs');
 const readFile = util.promisify(fs.readFile);
@@ -43,7 +46,14 @@ argv.option([
 var parsed_argv = argv.run();
 console.log(parsed_argv.options);
 
-const discord_client = new Discord.Client();
+const discord_client = new Client({intents: 
+    [
+        "GUILD_VOICE_STATES",
+        Intents.FLAGS.GUILDS,
+        Intents.FLAGS.GUILD_MESSAGES,
+        Intents.FLAGS.GUILD_VOICE_STATES,
+    ]
+});
 const tts_client = new textToSpeech.TextToSpeechClient();
 const command_dispatcher = new CommandDispatcher();
 
@@ -68,17 +78,21 @@ var dictionary = JSON.parse(fs.readFileSync("./dictionary.json", "utf8"));
 var prefix = parsed_argv.options.prefix;
 var rapid_mode = false;
 var connection = null;
-var dispatcher = null;
+var player = null;
 var current_playing = "";
 var message_requests = [];
 var target_channel_id = null;
+var target_voice_channel = null;
 var current_member_num = 0;
 var current_processing_chars = 0;
 
-const on_finish_proc = async (cond) => {
-    if (!cond) {
+const on_finish_proc = async (oldState, newState) => {
+    //console.log(`Finish : ${oldState.status} => ${newState.status} (${current_playing})`);
+    if ((oldState.status == 'buffering' || oldState.status == 'playing') && (newState.status == 'idle' || newState.status == 'paused' || newState.status == 'autopaused')) {
+        // この関数は1度のリクエストで複数回の同一の遷移情報が送られてくる場合がある
+        // その場合を考慮し、各リクエストで一度のみ処理を行うようにしている
         try {
-            if (!current_playing.match(/login_voices/)) {
+            if (!current_playing.match(/login_voices/) && fs.existsSync(current_playing)) {
                 await readFile(current_playing);
                 await unlink(current_playing); 
             }
@@ -87,10 +101,8 @@ const on_finish_proc = async (cond) => {
         if (message_requests.length > 0) {
             const next = message_requests.pop();
             current_playing = next;
-            let next_disp = connection.play(next);
-            next_disp.on("speaking", on_finish_proc);
-        } else {
-            dispatcher = null;
+            let resource = createAudioResource(next);
+            player.play(resource);
         }
     }
 }
@@ -106,7 +118,27 @@ command_dispatcher.on({
     expr: (obj) => { return obj.message.member.voice.channel.joinable && obj.message.member.voice.channel},
     do : async (obj) => {
         target_channel_id = obj.message.channel.id;
-        connection = await obj.message.member.voice.channel.join();
+        target_voice_channel = obj.message.member.voice.channel;
+
+        player = createAudioPlayer();
+        player.on('stateChange', on_finish_proc);
+
+        const channel = obj.message.channel;
+        connection = joinVoiceChannel({
+            channelId: target_voice_channel.id,
+            guildId: channel.guild.id,
+            adapterCreator: channel.guild.voiceAdapterCreator
+        });
+        try {
+            await entersState(connection, VoiceConnectionStatus.Ready, 1000);
+        } catch (error) {
+            console.log(error);
+            connection.disconnect();
+        }
+        console.log(channel);
+        console.log(connection);
+        connection.subscribe(player);
+
         obj.message.channel.send("Hi");
     }
 });
@@ -262,7 +294,7 @@ discord_client.on('ready', async () => {
       console.log(`Logged in as ${discord_client.user.tag}!`);
 });
 
-discord_client.on('message', async (msg) => {
+discord_client.on('messageCreate', async (msg) => {
     if (!msg.author.bot) {
         await command_dispatcher.dispatch(msg).then(async (res) => {
             if (res) {
@@ -271,11 +303,11 @@ discord_client.on('message', async (msg) => {
 
             if (connection && target_channel_id && target_channel_id == msg.channel.id) {
                 let req_msg = msg.content.replace(/((http|https):\/\/\S+)|(<@\S+>)/g, "");
-		dictionary.words.forEach((item, index) => {
-			let word = quote(item.word);
-			let regex = new RegExp(`${word}`, 'g');
-			req_msg = req_msg.replace(regex, item.mean);
-		});
+                dictionary.words.forEach((item, index) => {
+                    let word = quote(item.word);
+                    let regex = new RegExp(`${word}`, 'g');
+                    req_msg = req_msg.replace(regex, item.mean);
+                });
                 req_msg = req_msg.slice(0, system_settings.max_character_num);
 
                 let req_pitch = system_settings.default_pitch;
@@ -305,10 +337,10 @@ discord_client.on('message', async (msg) => {
                         await unlink(current_playing); 
                     } catch (err) {}
                 }
-                if (!dispatcher || rapid_mode || req_msg == "stop" || req_msg == "s") {
+                if (player.state.status == "idle" || rapid_mode || req_msg == "stop" || req_msg == "s") {
                     current_playing = filename;
-                    dispatcher = connection.play(filename);
-                    dispatcher.on("speaking", on_finish_proc);
+                    let resource = createAudioResource(filename);
+                    player.play(resource);
                 } else {
                     message_requests.unshift(filename);
                 }
@@ -322,7 +354,7 @@ discord_client.on("voiceStateUpdate", async (old_state, new_state) => {
     if (!connection) {
         return;
     }
-    let member_num = connection.channel.members.array().length;
+    let member_num = target_voice_channel.members.size;
     if (connection && member_num == 1) {
         await connection.disconnect();
         connection = null;
@@ -333,10 +365,10 @@ discord_client.on("voiceStateUpdate", async (old_state, new_state) => {
         const lv_file_name = filenames[Math.floor(Math.random() * filenames.length)];
         const lv_file_path = `./login_voices/${lv_file_name}`;
         if (fs.existsSync(lv_file_path, "utf8")) {
-            if (!dispatcher || rapid_mode) {
+            if ((player.state.status == "idle") || rapid_mode) {
                 current_playing = lv_file_path;
-                dispatcher = connection.play(lv_file_path);
-                dispatcher.on("speaking", on_finish_proc);
+                let resource = createAudioResource(lv_file_path);
+                player.play(resource);
             } else {
                 message_requests.unshift(lv_file_path);
             }            
